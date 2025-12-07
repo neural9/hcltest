@@ -1,0 +1,107 @@
+# Cursor Configuration for hcltest
+
+## Project Overview
+This is a Next.js 16 project using React 19, TypeScript, Tailwind CSS v4, and Bun runtime.
+
+## Tech Stack
+- **Framework**: Next.js 16 (App Router)
+- **Runtime**: Bun
+- **UI Library**: React 19
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS v4
+- **Components**: ShadCN UI
+- **Database**: Bun's native SQLite with Drizzle ORM
+- **Linting**: ESLint with Next.js config
+
+## Code Style & Best Practices
+
+### TypeScript
+- Use TypeScript for all new files
+- Prefer type inference where possible
+- Use interfaces for object shapes, types for unions/intersections
+- Avoid using `any` - use `unknown` if type is truly unknown
+- Enable strict mode features
+
+### React & Next.js
+- Use React Server Components by default (no "use client" unless needed)
+- Add "use client" directive only when using:
+  - useState, useEffect, or other React hooks
+  - Event handlers (onClick, onChange, etc.)
+  - Browser-only APIs
+  - Third-party libraries that require client-side rendering
+- Prefer async Server Components for data fetching
+- Use Next.js App Router conventions (app directory)
+- Follow Next.js 16 best practices for layouts, pages, and components
+- Use Next.js Image component for images
+- Use Next.js Link component for navigation
+
+### Tailwind CSS
+- Use Tailwind v4 utility classes for styling
+- Follow mobile-first responsive design (sm:, md:, lg:, xl:)
+- Use Tailwind's color palette and spacing scale
+- Avoid inline styles unless absolutely necessary
+- Group Tailwind classes logically (layout, spacing, typography, colors, effects)
+
+### ShadCN UI Components
+- **ALWAYS use ShadCN UI components - DO NOT create custom UI components**
+- Use `npx shadcn@latest add <component>` to add new ShadCN components
+- Never recreate components that exist in ShadCN (Button, Input, Dialog, etc.)
+- Refer to https://ui.shadcn.com for available components
+- Customize ShadCN components by modifying their props or extending their styles
+- Use ShadCN's composition pattern to build complex UIs from existing components
+- If a specific variant doesn't exist, extend the ShadCN component rather than creating new
+- Keep ShadCN components in the `components/ui` directory
+- Use ShadCN's theming system for consistent design
+
+### Database (Drizzle ORM + Bun SQLite)
+- Use Drizzle ORM for type-safe database queries
+- Use Bun's native SQLite driver (`bun:sqlite`) for optimal performance
+- Define database schemas using Drizzle's schema definition
+- Keep database schema files in a `db/schema` directory
+- Use Drizzle migrations for schema changes
+- Leverage Drizzle's query builder for complex queries
+- Use prepared statements for better performance
+- Handle database connections properly (singleton pattern for connection)
+- Use transactions for multi-step operations
+- Implement proper error handling for database operations
+- Use Drizzle's relations feature for foreign keys and joins
+- Keep database logic separate from UI components (use in Server Components or API routes)
+
+### Component Structure
+- Create components in a logical directory structure
+- Use functional components with TypeScript
+- Prefer named exports for components
+- Keep components focused and single-responsibility
+- Extract reusable logic into custom hooks
+
+### File Naming
+- Use kebab-case for files and directories
+- Use PascalCase for component files (e.g., `Button.tsx`)
+- Use lowercase for utility files (e.g., `utils.ts`)
+- Use `.tsx` for files with JSX, `.ts` for pure TypeScript
+
+### Performance
+- Use React.memo() sparingly and only when needed
+- Implement proper code splitting with dynamic imports
+- Optimize images using Next.js Image component
+- Minimize client-side JavaScript
+
+### Error Handling
+- Use error boundaries for component-level errors
+- Implement proper error pages (error.tsx, not-found.tsx)
+- Handle async errors appropriately
+- Provide user-friendly error messages
+
+## Development Commands
+- `bun dev` - Start development server
+- `bun build` - Build for production
+- `bun start` - Start production server
+
+## Code Generation Preferences
+- Generate clean, readable code with appropriate comments
+- Follow modern React and Next.js patterns
+- Prioritize type safety and error handling
+- Write accessible HTML (proper semantic tags, ARIA attributes when needed)
+- Include loading and error states for async operations
+- Use modern ES6+ features
+- Prefer async/await over promise chains
