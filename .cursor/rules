@@ -54,18 +54,61 @@ This is a Next.js 16 project using React 19, TypeScript, Tailwind CSS v4, and Bu
 - Use ShadCN's theming system for consistent design
 
 ### Database (Drizzle ORM + Bun SQLite)
-- Use Drizzle ORM for type-safe database queries
-- Use Bun's native SQLite driver (`bun:sqlite`) for optimal performance
-- Define database schemas using Drizzle's schema definition
-- Keep database schema files in a `db/schema` directory
-- Use Drizzle migrations for schema changes
-- Leverage Drizzle's query builder for complex queries
-- Use prepared statements for better performance
-- Handle database connections properly (singleton pattern for connection)
-- Use transactions for multi-step operations
-- Implement proper error handling for database operations
-- Use Drizzle's relations feature for foreign keys and joins
-- Keep database logic separate from UI components (use in Server Components or API routes)
+- **ALWAYS use Drizzle ORM** for database operations - NO raw SQL queries
+- Use Bun's native SQLite driver (`bun:sqlite`) wrapped with Drizzle
+- Define schemas in `db/schema.ts` using Drizzle's schema builders
+- Export type-safe types from schema: `Transaction`, `NewTransaction`, etc.
+- Use `drizzle-orm/bun-sqlite` import for the Drizzle wrapper
+
+#### Database Setup Pattern
+```typescript
+// lib/db.ts
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { Database } from "bun:sqlite";
+import * as schema from "../db/schema";
+
+const sqlite = new Database(dbPath, { create: true });
+export const db = drizzle(sqlite, { schema });
+```
+
+#### Schema Definition Pattern
+```typescript
+// db/schema.ts
+import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
+
+export const tableName = sqliteTable(
+  "table_name",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    // ... other fields
+  },
+  (table) => ({
+    // indexes here
+    nameIdx: index("idx_name").on(table.field),
+  })
+);
+
+export type TableType = typeof tableName.$inferSelect;
+export type NewTableType = typeof tableName.$inferInsert;
+```
+
+#### Query Patterns
+```typescript
+// SELECT
+const results = db.select().from(table).all();
+const filtered = db.select().from(table).where(eq(table.field, value)).all();
+const ordered = db.select().from(table).orderBy(asc(table.field)).all();
+
+// INSERT
+await db.insert(table).values({ field: value });
+await db.insert(table).values([{ ... }, { ... }]); // Bulk insert
+
+// UPDATE
+await db.update(table).set({ field: value }).where(eq(table.id, id));
+
+// DELETE
+await db.delete(table).where(eq(table.id, id));
+```
 
 ### Component Structure
 - Create components in a logical directory structure
@@ -92,10 +135,223 @@ This is a Next.js 16 project using React 19, TypeScript, Tailwind CSS v4, and Bu
 - Handle async errors appropriately
 - Provide user-friendly error messages
 
+### API Routes (Next.js 16 App Router)
+- Use route handlers in `app/api/[route]/route.ts`
+- Export async functions: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`
+- **IMPORTANT**: In Next.js 16, `params` is now a Promise and must be awaited
+
+#### API Route Pattern
+```typescript
+// app/api/resource/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import db from "@/lib/db";
+import { table } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: idString } = await params; // MUST await params in Next.js 16
+    const id = parseInt(idString);
+    const body = await request.json();
+
+    await db.update(table).set(body).where(eq(table.id, id));
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error("Error:", error);
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
+  }
+}
+```
+
+### Modal Components Pattern
+- **ALWAYS use React Portals** for modals to prevent hydration errors
+- Modals must render outside table structures to avoid invalid HTML
+- Check `isMounted` before rendering portal to ensure client-side only
+
+#### Modal Pattern
+```typescript
+"use client";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+
+export default function Modal({ isOpen, onClose }) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isOpen || !isMounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 ...">
+      {/* Modal content */}
+    </div>,
+    document.body
+  );
+}
+```
+
+### Date Formatting
+- **AVOID** `toLocaleDateString()` in components - causes hydration mismatches
+- Create consistent date formatting functions to ensure server/client match
+- Store dates as ISO strings in database
+
+#### Date Formatting Pattern
+```typescript
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  const day = date.getDate().toString().padStart(2, "0");
+  const months = ["Jan", "Feb", "Mar", ...];
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+```
+
+### Server vs Client Components
+- **Server Components** (default): Data fetching, database queries
+- **Client Components** ("use client"): Interactive UI, modals, forms, charts
+- Pass data from server to client components via props
+- Use `router.refresh()` to reload server data after mutations
+
+#### Component Separation Pattern
+```typescript
+// app/page.tsx (Server Component)
+export default function Page() {
+  const data = db.select().from(table).all(); // Server-side query
+
+  return <ClientComponent data={data} />;
+}
+
+// ClientComponent.tsx (Client Component)
+"use client";
+export default function ClientComponent({ data }) {
+  const [state, setState] = useState();
+  // Interactive logic here
+}
+```
+
+### Charts (shadcn/ui + Recharts)
+- Use shadcn charts: `npx shadcn@latest add chart`
+- Import from `recharts`: `Bar`, `BarChart`, `XAxis`, `YAxis`, `CartesianGrid`, `Cell`
+- Use `ChartContainer`, `ChartConfig` from `@/components/ui/chart`
+- Charts are client components (need "use client")
+
+#### Chart Pattern
+```typescript
+"use client";
+import { Bar, BarChart, XAxis, YAxis, Cell } from "recharts";
+import { ChartContainer, ChartConfig } from "@/components/ui/chart";
+
+const chartConfig = {
+  value: {
+    label: "Value",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig;
+
+export default function Chart({ data }) {
+  return (
+    <ChartContainer config={chartConfig}>
+      <BarChart data={data}>
+        <XAxis dataKey="label" />
+        <YAxis tickFormatter={(value) => `£${value}`} />
+        <Bar dataKey="value" radius={8}>
+          {data.map((entry, index) => (
+            <Cell
+              key={`cell-${index}`}
+              fill={entry.value < 0 ? "red" : "var(--color-value)"}
+            />
+          ))}
+        </Bar>
+      </BarChart>
+    </ChartContainer>
+  );
+}
+```
+
+## Project Structure
+```
+app/
+  api/
+    [resource]/
+      route.ts          # POST endpoint
+      [id]/
+        route.ts        # PUT, DELETE endpoints
+  [page]/
+    page.tsx           # Server Component (data fetching)
+    ClientComponent.tsx # Client Component (interactive)
+    Modal.tsx          # Client Component with portal
+components/
+  ui/                  # ShadCN components (auto-generated)
+db/
+  schema.ts            # Drizzle schema definitions
+lib/
+  db.ts                # Database connection (singleton)
+  utils.ts             # Utility functions (cn, etc.)
+scripts/
+  init-db.ts           # Database initialization
+  seed-db.ts           # Database seeding
+```
+
 ## Development Commands
 - `bun dev` - Start development server
 - `bun build` - Build for production
 - `bun start` - Start production server
+- `bun run db:init` - Initialize database
+- `bun run db:seed` - Seed database with data
+- `bun run db:studio` - Open Drizzle Studio (visual DB browser)
+
+## Common Patterns & Best Practices
+
+### Hydration Error Prevention
+1. **Never use locale-dependent functions** in components that render on both server and client
+2. **Always use React Portals** for modals that might be rendered in table rows
+3. **Check `isMounted`** before rendering portals or browser-only content
+4. **Consistent date formatting** - use custom functions, not `toLocaleDateString()`
+
+### CRUD Operations Pattern
+```typescript
+// 1. API Routes: app/api/resource/route.ts (POST), app/api/resource/[id]/route.ts (PUT, DELETE)
+// 2. Client Component: Form with state management
+// 3. Modal: React Portal for add/edit forms
+// 4. Table Row: Client component with action buttons
+// 5. Server refresh: Use router.refresh() after mutations
+```
+
+### Type Safety
+- Define types from Drizzle schema using `$inferSelect` and `$inferInsert`
+- Pass types through component props
+- Use strict TypeScript settings
+- Avoid `any` - use proper types or `unknown`
+
+### Icons
+- Use `lucide-react` for all icons (already installed)
+- Common icons: `Pencil` (edit), `Trash2` (delete), `Plus` (add), `TrendingUp` (charts)
+
+### Styling Conventions
+- Use Tailwind utility classes
+- Group classes: layout → spacing → typography → colors → effects
+- Use `cn()` utility from `lib/utils.ts` for conditional classes
+- Responsive: mobile-first with `sm:`, `md:`, `lg:`, `xl:` breakpoints
+
+### Error Handling
+- Always wrap async operations in try-catch
+- Return proper HTTP status codes from API routes
+- Show user-friendly error messages (alerts or toasts)
+- Log errors to console for debugging
+
+### Data Flow
+1. **Server Component**: Fetch data from DB using Drizzle
+2. **Props**: Pass data to client components
+3. **Client Component**: Handle user interactions
+4. **API Route**: Process mutations (POST/PUT/DELETE)
+5. **Refresh**: Use `router.refresh()` to reload server data
 
 ## Code Generation Preferences
 - Generate clean, readable code with appropriate comments
@@ -105,3 +361,5 @@ This is a Next.js 16 project using React 19, TypeScript, Tailwind CSS v4, and Bu
 - Include loading and error states for async operations
 - Use modern ES6+ features
 - Prefer async/await over promise chains
+- **ALWAYS follow the patterns documented above**
+- **When adding new features, match existing patterns** (modals, API routes, components)
