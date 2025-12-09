@@ -1,6 +1,8 @@
 import db from "@/lib/db";
 import { transactions as transactionsTable } from "@/db/schema";
 import { asc } from "drizzle-orm";
+import Link from "next/link";
+import Image from "next/image";
 import TransactionsClient from "./TransactionsClient";
 import TransactionRow from "./TransactionRow";
 import BalanceChart from "./BalanceChart";
@@ -65,17 +67,32 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-8">
-      <div className="mx-auto max-w-7xl">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="mx-auto max-w-7xl px-8 py-16">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-12 flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">Transactions</h1>
             <p className="mt-2 text-gray-600">
               View your complete transaction history
             </p>
           </div>
-          <TransactionsClient />
+          <div className="flex items-center gap-4">
+            <Link
+              href="/dashboard"
+              className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"
+            >
+              ← Back to Dashboard
+            </Link>
+            <TransactionsClient />
+            <Image
+              src="/hcltech.svg"
+              alt="HCLTech logo"
+              width={120}
+              height={22}
+              priority
+            />
+          </div>
         </div>
 
         {/* Summary Cards */}
